@@ -1,0 +1,23 @@
+{
+  "name": "test-management-tools",
+  "version": "1.0.0",
+  "description": "Web-based test case management, SIT/UAT execution with evidence, and SIT/UAT/BAST report generation (Bahasa Indonesia / English).",
+  "main": "src/server.js",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/server.js",
+    "seed": "node --disable-warning=ExperimentalWarning src/seed.js"
+  },
+  "keywords": ["test management", "uat", "sit", "bast", "testlink"],
+  "license": "MIT",
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^4.22.3",
+    "multer": "^2.4.0",
+    "pdfkit": "^0.20.2"
+  }
+}
