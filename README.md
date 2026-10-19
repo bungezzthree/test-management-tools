@@ -139,4 +139,4 @@ public/              Single-page web UI (no build step)
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Bungas Trisasongko.
