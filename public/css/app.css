@@ -338,3 +338,8 @@ body.login-page { display: grid; place-items: center; min-height: 100vh; backgro
 /* grid children must be allowed to shrink, or long inputs push the page sideways */
 .two-col > *, .grid2 > *, .grid3 > *, .grid4 > *, .gen-layout > * { min-width: 0; }
 @media (max-width: 760px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ---------- test automation */
+.tag.auto { border-color: #0b7285; color: #0b7285; }
+@media (prefers-color-scheme: dark) { .tag.auto { border-color: #4fb3c4; color: #7fd1de; } }
+pre.code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; word-break: break-all; margin: 4px 0 0; }

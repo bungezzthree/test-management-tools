@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
 import { all, get, run, tx, hashPassword, HttpError, UPLOAD_DIR } from './db.js';
-import { login, logout, changePassword, requireAuth, requireRole } from './auth.js';
+import { login, logout, changePassword, requireAuth, requireRole, limitTokenScope, createApiToken } from './auth.js';
 import {
   ah, toInt, getProject, getSuite, getPlan, getCase, createSuite, moveSuite, copySuite, deleteSuite,
   normalizeCase, normalizeSteps, createCase, updateCase, copyCase, moveCase, assertNotExecuted,
@@ -14,6 +14,7 @@ import {
 import { importCases, exportCases, toCsv, toXlsx, TEMPLATE_ROWS, suiteBelongs } from './importExport.js';
 import { renderReport } from './reports/index.js';
 import { ai } from './aiRoutes.js';
+import { automation } from './automation/routes.js';
 
 const MAX_UPLOAD_MB = toInt(process.env.MAX_UPLOAD_MB) || 25;
 
@@ -38,15 +39,44 @@ const ids = (v) => (Array.isArray(v) ? v : []).map(toInt).filter(Boolean);
 const placeholders = (arr) => arr.map(() => '?').join(',');
 
 export const api = express.Router();
-api.use(express.json({ limit: '2mb' }));
+const jsonBody = express.json({ limit: '2mb' });
+// automation endpoints parse their own (larger) JSON bodies after authentication
+api.use((req, res, next) => (/\/automation\//.test(req.path) ? next() : jsonBody(req, res, next)));
 
 /* ------------------------------------------------------------------ auth */
 
 api.post('/auth/login', ah(login));
 api.post('/auth/logout', ah(logout));
 api.use(requireAuth);
+api.use(limitTokenScope);
 api.get('/auth/me', (req, res) => res.json(req.user));
 api.put('/auth/password', ah(changePassword));
+
+/* ------------------------------------------------------------------ API tokens */
+
+// Tokens grant CI pipelines access to the automation endpoints with the owner's role.
+api.get('/tokens', tester, (req, res) => {
+  const base = `SELECT t.id, t.name, t.prefix, t.expires_at, t.last_used_at, t.created_at, t.user_id, u.full_name AS user_name, u.username
+                FROM api_tokens t JOIN users u ON u.id = t.user_id`;
+  res.json(req.user.role === 'admin'
+    ? all(`${base} ORDER BY t.id DESC`)
+    : all(`${base} WHERE t.user_id = ? ORDER BY t.id DESC`, req.user.id));
+});
+
+api.post('/tokens', tester, ah((req, res) => {
+  if (req.viaToken) throw new HttpError(403, 'Create tokens from the web UI');
+  const owner = req.user.role === 'admin' && toInt(req.body.user_id) ? toInt(req.body.user_id) : req.user.id;
+  const t = createApiToken({ userId: owner, name: req.body.name, expiresDays: req.body.expires_days, createdBy: req.user.id });
+  res.status(201).json(t); // the only time the full token is shown
+}));
+
+api.delete('/tokens/:id', tester, ah((req, res) => {
+  const t = get('SELECT user_id FROM api_tokens WHERE id = ?', toInt(req.params.id));
+  if (!t) throw new HttpError(404, 'Token not found');
+  if (req.user.role !== 'admin' && t.user_id !== req.user.id) throw new HttpError(403, 'You can only revoke your own tokens');
+  run('DELETE FROM api_tokens WHERE id = ?', toInt(req.params.id));
+  res.json({ ok: true });
+}));
 
 api.get('/meta', (req, res) => res.json({
   priorities: PRIORITIES, test_types: TEST_TYPES, execution_types: EXECUTION_TYPES,
@@ -565,3 +595,7 @@ api.get('/plans/:id/report', ah(async (req, res) => {
 /* ------------------------------------------------------------------ AI test case generator, settings, Jira */
 
 api.use(ai);
+
+/* ------------------------------------------------------------------ test automation (CI) */
+
+api.use(automation);

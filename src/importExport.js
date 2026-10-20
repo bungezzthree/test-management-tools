@@ -17,6 +17,7 @@ export const COLUMNS = [
   { key: 'test_type', header: 'Test Type', width: 13 },
   { key: 'execution_type', header: 'Execution Type', width: 13 },
   { key: 'status', header: 'Status', width: 10 },
+  { key: 'automation_ref', header: 'Automation Ref', width: 34 },
   { key: 'requirement_ref', header: 'Requirement ID', width: 15 },
   { key: 'tags', header: 'Tags', width: 15 },
   { key: 'estimated_minutes', header: 'Est. Minutes', width: 11 },
@@ -38,6 +39,7 @@ const ALIASES = {
   test_type: ['testtype', 'type', 'tipe', 'jenis'],
   execution_type: ['executiontype', 'execution', 'manualautomated'],
   status: ['status', 'casestatus'],
+  automation_ref: ['automationref', 'automationid', 'automationkey', 'testmethod', 'scriptref', 'scriptid'],
   requirement_ref: ['requirementid', 'requirement', 'reqid', 'requirementref', 'brd', 'fsd', 'userstory'],
   tags: ['tags', 'tag', 'labels', 'keywords'],
   estimated_minutes: ['estminutes', 'estimatedminutes', 'estimate', 'duration', 'durasi'],
@@ -145,6 +147,8 @@ export async function importCases({ projectId, buffer, filename, defaultSuiteId,
     if (identity && (!cur || identity !== (cur.fields.case_key || cur.fields.title))) {
       const fields = {};
       for (const c of COLUMNS) fields[c.key] = val(r, c.key);
+      // a file without this column must not unlink existing automated tests
+      if (map.automation_ref === undefined) delete fields.automation_ref;
       cur = { rowNo, fields, steps: [] };
       cases.push(cur);
     } else if (!cur) {

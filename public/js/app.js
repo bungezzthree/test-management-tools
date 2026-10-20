@@ -5,6 +5,7 @@ import { renderSpec } from './views/spec.js';
 import { renderPlans, renderPlan } from './views/plans.js';
 import { renderGenerator } from './views/generator.js';
 import { renderSettings } from './views/settings.js';
+import { tokenManager } from './views/tokens.js';
 
 const NAV = [
   ['dashboard', 'Dashboard'],
@@ -78,6 +79,7 @@ function renderShell() {
       <div class="user-menu">
         <button class="btn ghost" id="userBtn">${esc(state.user.full_name)} <span class="role">${esc(state.user.role)}</span> ▾</button>
         <div class="dropdown" id="userDropdown" hidden>
+          ${can.edit() ? '<button data-act="tokens">API tokens (CI / automation)</button>' : ''}
           <button data-act="password">Change password</button>
           <button data-act="logout">Log out</button>
         </div>
@@ -103,6 +105,7 @@ function renderShell() {
       state.user = null;
       go('login');
     } else if (act === 'password') changePassword();
+    else if (act === 'tokens') tokenManager();
   };
 }
 

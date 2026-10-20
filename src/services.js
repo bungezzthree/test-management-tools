@@ -190,6 +190,8 @@ export function normalizeCase(body) {
     requirement_ref: str(body.requirement_ref),
     tags: str(body.tags),
     estimated_minutes: est && est > 0 ? est : null,
+    // left undefined when the caller does not mention it, so older clients never wipe the link to test code
+    ...('automation_ref' in body ? { automation_ref: str(body.automation_ref)?.slice(0, 500) ?? null } : {}),
   };
 }
 
@@ -209,7 +211,9 @@ function writeSteps(caseId, steps) {
 }
 
 const CASE_COLS = ['title', 'objective', 'preconditions', 'postconditions', 'priority', 'test_type',
-  'execution_type', 'status', 'requirement_ref', 'tags', 'estimated_minutes'];
+  'execution_type', 'status', 'requirement_ref', 'tags', 'estimated_minutes', 'automation_ref'];
+
+const isUniqueViolation = (e) => /UNIQUE constraint failed/i.test(e?.message || '');
 
 export function createCase(suiteId, data, steps, userId, caseKey = null) {
   return tx(() => {
@@ -217,11 +221,17 @@ export function createCase(suiteId, data, steps, userId, caseKey = null) {
     const key = caseKey && !get('SELECT 1 FROM test_cases WHERE project_id = ? AND case_key = ?', suite.project_id, caseKey)
       ? caseKey : nextCaseKey(suite.project_id);
     const sort = get('SELECT COALESCE(MAX(sort), 0) + 1 AS n FROM test_cases WHERE suite_id = ?', suiteId).n;
-    const id = Number(run(
-      `INSERT INTO test_cases (project_id, suite_id, case_key, ${CASE_COLS.join(', ')}, sort, created_by, updated_by)
-       VALUES (?, ?, ?, ${CASE_COLS.map(() => '?').join(', ')}, ?, ?, ?)`,
-      suite.project_id, suiteId, key, ...CASE_COLS.map((c) => data[c]), sort, userId, userId
-    ).lastInsertRowid);
+    let id;
+    try {
+      id = Number(run(
+        `INSERT INTO test_cases (project_id, suite_id, case_key, ${CASE_COLS.join(', ')}, sort, created_by, updated_by)
+         VALUES (?, ?, ?, ${CASE_COLS.map(() => '?').join(', ')}, ?, ?, ?)`,
+        suite.project_id, suiteId, key, ...CASE_COLS.map((c) => data[c]), sort, userId, userId
+      ).lastInsertRowid);
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new HttpError(409, `Automation reference "${data.automation_ref}" is already used by another test case in this project`);
+      throw e;
+    }
     writeSteps(id, steps);
     return id;
   });
@@ -230,14 +240,20 @@ export function createCase(suiteId, data, steps, userId, caseKey = null) {
 export function updateCase(caseId, data, steps, userId) {
   return tx(() => {
     const current = getCase(caseId);
+    if (data.automation_ref === undefined) data = { ...data, automation_ref: current.automation_ref };
     const stepSig = (list) => JSON.stringify(list.map((s) => [s.action, s.test_data || null, s.expected_result || null]));
     const changed = CASE_COLS.some((c) => (current[c] ?? null) !== (data[c] ?? null)) || stepSig(current.steps) !== stepSig(steps);
     if (!changed) return false;
-    run(
-      `UPDATE test_cases SET ${CASE_COLS.map((c) => `${c} = ?`).join(', ')}, version = version + 1,
-       updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-      ...CASE_COLS.map((c) => data[c]), userId, caseId
-    );
+    try {
+      run(
+        `UPDATE test_cases SET ${CASE_COLS.map((c) => `${c} = ?`).join(', ')}, version = version + 1,
+         updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        ...CASE_COLS.map((c) => data[c]), userId, caseId
+      );
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new HttpError(409, `Automation reference "${data.automation_ref}" is already used by another test case in this project`);
+      throw e;
+    }
     writeSteps(caseId, steps);
     return true;
   });
@@ -258,7 +274,8 @@ export function copyCase(caseId, targetSuiteId, userId) {
   const c = getCase(caseId);
   const target = getSuite(targetSuiteId);
   if (target.project_id !== c.project_id) throw new HttpError(400, 'Cannot copy a test case to another project');
-  return createCase(targetSuiteId, c, c.steps, userId);
+  // a copy is not the automated test itself, so it must not claim the same automation reference
+  return createCase(targetSuiteId, { ...c, automation_ref: null }, c.steps, userId);
 }
 
 export function moveCase(caseId, targetSuiteId) {

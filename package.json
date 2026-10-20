@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
     "dev": "node --disable-warning=ExperimentalWarning --watch src/server.js",
-    "seed": "node --disable-warning=ExperimentalWarning src/seed.js"
+    "seed": "node --disable-warning=ExperimentalWarning src/seed.js",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.mjs\""
   },
   "keywords": [
     "test management",
@@ -24,6 +25,7 @@
     "@anthropic-ai/sdk": "^0.135.0",
     "exceljs": "^4.4.0",
     "express": "^4.22.3",
+    "fast-xml-parser": "^5.11.2",
     "mammoth": "^1.13.0",
     "multer": "^2.4.0",
     "pdfkit": "^0.20.2",

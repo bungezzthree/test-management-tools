@@ -8,6 +8,7 @@ A self-hosted, open-source web tool for software houses and IT vendors that deli
 - **Execution** with step-by-step results, actual result, defect reference and **evidence attachments** (drag-and-drop, file picker, or paste a screenshot with Ctrl+V).
 - **Client approval**: the client approves or rejects each UAT result (or approves all passed results at once) and signs off the plan.
 - **Reports**: SIT Report, UAT Report and **BAST (Berita Acara Serah Terima)** in **Bahasa Indonesia or English**, as **PDF or HTML**, including evidence screenshots and signatures.
+- **Test automation integration**: CI pipelines and scripts use an **API token** to create/update the test specification from test code and to record automated results (JSON or **JUnit XML** from Maven, Gradle, pytest, Playwright, Cypress, Jest, TestNG, …), with evidence, build number and CI link. See [docs/AUTOMATION.md](docs/AUTOMATION.md).
 - **AI Test Case Generator**: paste a user story or BRD/FSD/TSD text, attach requirement documents, or link Jira issues; the AI drafts test cases that QA reviews, edits and creates directly in Test Specification (or downloads in the Excel import layout). Works with Claude or with a self-hosted open-source model.
 
 Tech stack: Node.js + Express, SQLite (built into Node, no database server), plain HTML/CSS/JavaScript (no build step). Dependencies: `express`, `multer`, `exceljs`, `pdfkit`, and for the AI generator `@anthropic-ai/sdk`, `mammoth` (Word) and `unpdf` (PDF).
@@ -62,6 +63,7 @@ Values entered under **Settings** win over environment variables. API keys enter
 |---|:-:|:-:|:-:|
 | Manage projects and users | ✔ | | |
 | Create/edit suites, test cases, plans; import; AI generator | ✔ | ✔ | |
+| Create API tokens, use the automation API | ✔ | ✔ | |
 | AI and Jira settings | ✔ | | |
 | Execute tests, upload evidence | ✔ | ✔ | |
 | Approve / reject results | ✔ | | ✔ |
@@ -163,6 +165,9 @@ GET  /api/plans/:id/report?type=sit|uat|bast&lang=id|en&format=pdf|html
 POST /api/projects/:id/ai/generate (multipart: data + documents[])   POST /api/projects/:id/ai/create
 POST /api/projects/:id/ai/export {cases, format}   GET /api/jira/issues?keys=PAY-1,PAY-2
 GET/PUT /api/settings   POST /api/settings/test-ai | /test-jira   GET /api/ai/status
+GET/POST /api/tokens    DELETE /api/tokens/:id                      (API tokens for CI)
+PUT  /api/projects/:prefix/automation/cases      POST /api/projects/:prefix/automation/results
+POST /api/projects/:prefix/automation/junit      POST /api/plans/:id/automation/evidence   (Bearer token; see docs/AUTOMATION.md)
 ```
 
 ## Project layout
@@ -181,8 +186,19 @@ src/
   ai/                Generator prompt and schema, Claude / OpenAI-compatible clients,
                      document text extraction, Jira client
   reports/           SIT/UAT/BAST builder, HTML and PDF renderers, ID/EN strings
+  automation/        Automation API for CI: spec sync, results, JUnit XML parser
 public/              Single-page web UI (no build step)
+test/                Integration tests (`npm test`)
+docs/AUTOMATION.md   Test automation / CI guide
 ```
+
+## Tests
+
+```bash
+npm test
+```
+
+Starts the server on a temporary database and exercises the API tokens, test automation endpoints, JUnit import and permissions.
 
 ## License
 

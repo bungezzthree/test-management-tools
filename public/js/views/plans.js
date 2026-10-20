@@ -418,6 +418,8 @@ function historyCard(x, latest, plan) {
     <div class="history-head">
       ${badge(x.status)} <b>${esc(x.executed_by_name || '-')}</b> <span class="muted small">${fmtDateTime(x.executed_at)} · v${x.case_version || '?'}</span>
       ${x.defect_ref ? `<span class="tag">${esc(x.defect_ref)}</span>` : ''}
+      ${x.source === 'automation' ? `<span class="tag auto" title="Reported by test automation">🤖 automated${x.build_ref ? ` · build ${esc(x.build_ref)}` : ''}${x.duration_ms != null ? ` · ${(x.duration_ms / 1000).toFixed(1)}s` : ''}</span>` : ''}
+      ${x.ci_url && /^https?:\/\//i.test(x.ci_url) ? `<a class="small" href="${esc(x.ci_url)}" target="_blank" rel="noopener">CI run ↗</a>` : ''}
       <span class="spacer"></span>
       ${badge(`Approval: ${x.approval_status}`, x.approval_status)}
     </div>

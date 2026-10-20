@@ -187,6 +187,37 @@ CREATE INDEX IF NOT EXISTS idx_exec_pc ON executions(plan_case_id);
 CREATE INDEX IF NOT EXISTS idx_att_exec ON attachments(execution_id);
 `);
 
+/* ---- additive migrations for databases created by earlier versions ---- */
+function addColumn(table, column, ddl) {
+  if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  }
+}
+addColumn('test_cases', 'automation_ref', 'TEXT'); // stable key from the test code, e.g. com.bank.LoginTest#valid
+addColumn('executions', 'source', "TEXT NOT NULL DEFAULT 'manual'"); // manual | automation
+addColumn('executions', 'build_ref', 'TEXT');
+addColumn('executions', 'ci_url', 'TEXT');
+addColumn('executions', 'duration_ms', 'INTEGER');
+addColumn('executions', 'run_id', 'TEXT'); // idempotency key so CI retries do not double-count
+
+db.exec(`
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cases_automation_ref ON test_cases(project_id, automation_ref) WHERE automation_ref IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_exec_run ON executions(plan_case_id, run_id);
+
+-- Long-lived credentials for CI pipelines and scripts. Only a SHA-256 hash is stored.
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  prefix TEXT NOT NULL,
+  expires_at TEXT,
+  last_used_at TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+`);
+
 // node:sqlite cannot bind undefined or booleans
 const norm = (params) => params.map((v) => (v === undefined ? null : typeof v === 'boolean' ? (v ? 1 : 0) : v));
 

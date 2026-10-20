@@ -170,7 +170,8 @@ function testReport(kind, planId, t, f, opts) {
       if (c.preconditions) kv.push([t.preconditions, c.preconditions]);
       if (c.requirement_ref) kv.push([t.requirement, c.requirement_ref]);
       if (exec) {
-        kv.push([t.executedBy, `${exec.executed_by_name || '-'} · ${f.dt(exec.executed_at)}`]);
+        const auto = exec.source === 'automation' ? ` · ${t.automated}${exec.build_ref ? ` (${t.build} ${exec.build_ref})` : ''}` : '';
+        kv.push([t.executedBy, `${exec.executed_by_name || '-'} · ${f.dt(exec.executed_at)}${auto}`]);
         if (exec.actual_result) kv.push([t.actualResult, exec.actual_result]);
         if (exec.defect_ref) kv.push([t.defectRef, exec.defect_ref]);
         if (exec.notes) kv.push([t.notes, exec.notes]);

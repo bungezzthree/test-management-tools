@@ -351,6 +351,7 @@ async function caseView(detail, ctx, caseId) {
       <div class="grid3">
         ${c.requirement_ref ? `<div class="field"><div class="label">Requirement ID</div><div>${requirementHtml(c.requirement_ref)}</div></div>` : ''}${field('Tags', c.tags)}${field('Estimated time', c.estimated_minutes ? `${c.estimated_minutes} min` : '')}
       </div>
+      ${c.automation_ref ? `<div class="field"><div class="label">Automation reference <span class="tag">🤖 linked to test code</span></div><div><code>${esc(c.automation_ref)}</code></div></div>` : ''}
     </div>
     <h3>Test steps</h3>
     ${c.steps.length ? `<table class="table steps"><thead><tr><th class="num">#</th><th>Test step</th><th>Test data</th><th>Expected result</th></tr></thead>
@@ -409,6 +410,8 @@ async function caseForm(detail, ctx, caseId, suiteId) {
         <label>Tags<input name="tags" value="${esc(c.tags)}" placeholder="smoke, regression"></label>
         <label>Est. minutes<input name="estimated_minutes" type="number" min="0" value="${esc(c.estimated_minutes)}"></label>
       </div>
+      <label>Automation reference <span class="hint">optional: the test's identity in code, e.g. com.bank.LoginTest#validLogin. CI results are matched to this test case through it.</span>
+        <input name="automation_ref" value="${esc(c.automation_ref)}" placeholder="com.bank.LoginTest#validLogin"></label>
       <label>Objective / description<textarea name="objective" rows="2">${esc(c.objective)}</textarea></label>
       <label>Preconditions<textarea name="preconditions" rows="2">${esc(c.preconditions)}</textarea></label>
       <h3>Test steps</h3>
