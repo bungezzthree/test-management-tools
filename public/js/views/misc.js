@@ -156,6 +156,12 @@ export async function renderImportExport(main) {
   main.innerHTML = `
     <div class="page">
       <div class="page-head"><h1>Import / Export test cases</h1></div>
+      ${can.edit() ? `<section class="card pad ai-banner">
+        <div><h2><span class="spark">✦</span> Generate test cases with AI</h2>
+          <p class="muted">Start from requirements instead of a spreadsheet: paste a user story, attach a BRD / FSD / TSD (PDF, Word, Excel, text), or link Jira issues.
+            Review the drafts, then create them directly in Test Specification, or download them in this import layout to finish in Excel and import here.</p></div>
+        <a class="btn primary" href="#/generate">Open AI generator</a>
+      </section>` : ''}
       <div class="two-col">
         <section class="card pad">
           <h2>Import from Excel or CSV</h2>

@@ -158,6 +158,26 @@ CREATE TABLE IF NOT EXISTS signoffs (
   signed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+
+-- One row per AI test case generation, for traceability and cost tracking
+CREATE TABLE IF NOT EXISTS ai_generations (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  provider TEXT NOT NULL,
+  model TEXT NOT NULL,
+  sources TEXT,                                  -- JSON list of {type, name}
+  case_count INTEGER NOT NULL DEFAULT 0,
+  created_count INTEGER NOT NULL DEFAULT 0,
+  input_tokens INTEGER,
+  output_tokens INTEGER,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cases_key ON test_cases(project_id, case_key);
 CREATE INDEX IF NOT EXISTS idx_suites_project ON suites(project_id, parent_id);
 CREATE INDEX IF NOT EXISTS idx_cases_suite ON test_cases(suite_id);

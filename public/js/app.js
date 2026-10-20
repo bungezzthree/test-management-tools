@@ -3,6 +3,8 @@ import { esc, $, $$, modal, toast, formValues } from './ui.js';
 import { renderDashboard, renderProjects, renderUsers, renderImportExport, renderReports } from './views/misc.js';
 import { renderSpec } from './views/spec.js';
 import { renderPlans, renderPlan } from './views/plans.js';
+import { renderGenerator } from './views/generator.js';
+import { renderSettings } from './views/settings.js';
 
 const NAV = [
   ['dashboard', 'Dashboard'],
@@ -21,7 +23,12 @@ const ROUTES = [
   [/^import$/, renderImportExport, true],
   [/^reports$/, renderReports, true],
   [/^users$/, renderUsers, false],
+  [/^generate$/, renderGenerator, true],
+  [/^settings$/, renderSettings, false],
 ];
+
+// Pages without their own nav item highlight the closest one.
+const NAV_PARENT = { generate: 'spec' };
 
 export function go(path) {
   location.hash = `#/${path}`;
@@ -59,7 +66,7 @@ function renderLogin() {
 
 function renderShell() {
   document.body.className = '';
-  const navLinks = [...NAV, ...(can.admin() ? [['users', 'Users']] : [])];
+  const navLinks = [...NAV, ...(can.admin() ? [['users', 'Users'], ['settings', 'Settings']] : [])];
   $('#app').innerHTML = `
     <header class="topbar">
       <a class="brand" href="#/dashboard"><span class="logo">✓</span> TestDesk</a>
@@ -124,7 +131,8 @@ async function route() {
   if (!state.user) return renderLogin();
   if (path === 'login') return go('dashboard');
   if (!$('#main')) renderShell();
-  $$('#nav a').forEach((a) => a.classList.toggle('active', path === a.dataset.nav || path.startsWith(`${a.dataset.nav}/`) || (!path && a.dataset.nav === 'dashboard')));
+  const navPath = NAV_PARENT[path] || path;
+  $$('#nav a').forEach((a) => a.classList.toggle('active', navPath === a.dataset.nav || navPath.startsWith(`${a.dataset.nav}/`) || (!navPath && a.dataset.nav === 'dashboard')));
   const main = $('#main');
   const hit = ROUTES.find(([re]) => re.test(path));
   if (!hit) {

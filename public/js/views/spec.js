@@ -35,7 +35,8 @@ export async function renderSpec(main, _, query) {
       <aside class="tree-panel">
         <div class="tree-tools">
           <input type="search" id="treeFilter" placeholder="Filter by ID or title" value="${esc(filterText)}">
-          ${can.edit() ? '<button class="btn small primary" id="addRootSuite" title="New top-level suite">+ Suite</button>' : ''}
+          ${can.edit() ? `<button class="btn small primary" id="addRootSuite" title="New top-level suite">+ Suite</button>
+          <a class="btn small ai" href="#/generate${ctx.sel.suite ? `?suite=${ctx.sel.suite}` : ''}" title="Generate test cases with AI">✦ AI</a>` : ''}
         </div>
         <div class="tree" id="tree"></div>
       </aside>
@@ -122,7 +123,7 @@ function overview(detail, ctx) {
   detail.innerHTML = `
     <div class="detail-head"><div><h1>Test specification</h1><p class="muted">${esc(ctx.p.name)} · ${ctx.suites.length} suites · ${ctx.cases.length} test cases</p></div>
       <div class="actions">
-        ${can.edit() ? '<button class="btn" id="newSuite2">New suite</button><a class="btn" href="#/import">Import from Excel</a>' : ''}
+        ${can.edit() ? '<a class="btn ai" href="#/generate">✦ Generate with AI</a><button class="btn" id="newSuite2">New suite</button><a class="btn" href="#/import">Import from Excel</a>' : ''}
       </div></div>
     ${roots.length ? `<table class="table"><thead><tr><th>Suite</th><th class="num">Test cases</th></tr></thead><tbody>
       ${roots.map((s) => `<tr class="link" data-go="${s.id}"><td><span class="ico folder"></span> ${esc(s.name)}<div class="muted small">${esc(s.description || '')}</div></td><td class="num">${subtreeCount(ctx, s.id)}</td></tr>`).join('')}
@@ -146,6 +147,7 @@ function suiteView(detail, ctx, suiteId) {
         <p class="muted small">${subtreeCount(ctx, s.id)} test cases in this suite and its sub-suites</p></div>
       <div class="actions wrap">
         ${e ? `<button class="btn primary" data-act="newCase">+ Test case</button>
+        <a class="btn ai" href="#/generate?suite=${s.id}">✦ Generate with AI</a>
         <button class="btn" data-act="newChild">+ Sub-suite</button>
         <button class="btn" data-act="edit">Rename / edit</button>
         <button class="btn" data-act="move">Move</button>
@@ -320,9 +322,16 @@ async function addToPlanForm(ctx, ids) {
 
 async function caseView(detail, ctx, caseId) {
   let c;
-  try { c = await GET(`/cases/${caseId}`); } catch (err) { detail.innerHTML = empty(err.message); return; }
+  let jiraBase = null;
+  try {
+    [c, { jira_base_url: jiraBase }] = await Promise.all([GET(`/cases/${caseId}`), GET('/ai/status')]);
+  } catch (err) { detail.innerHTML = empty(err.message); return; }
   const e = can.edit();
   const field = (label, value) => (value ? `<div class="field"><div class="label">${label}</div><div>${nl2br(value)}</div></div>` : '');
+  // Jira keys in the requirement field link to the issue when Jira is configured.
+  const requirementHtml = (ref) => (jiraBase
+    ? esc(ref).replace(/\b([A-Z][A-Z0-9_]{1,19}-\d{1,9})\b/g, (k) => `<a href="${esc(jiraBase)}/browse/${k}" target="_blank" rel="noopener">${k}</a>`)
+    : esc(ref));
   detail.innerHTML = `
     <div class="detail-head">
       <div><div class="crumbs"><a href="#/${specUrl(`suite=${c.suite_id}`)}">${esc(c.suite_path)}</a></div>
@@ -340,7 +349,7 @@ async function caseView(detail, ctx, caseId) {
       ${field('Objective / description', c.objective)}
       ${field('Preconditions', c.preconditions)}
       <div class="grid3">
-        ${field('Requirement ID', c.requirement_ref)}${field('Tags', c.tags)}${field('Estimated time', c.estimated_minutes ? `${c.estimated_minutes} min` : '')}
+        ${c.requirement_ref ? `<div class="field"><div class="label">Requirement ID</div><div>${requirementHtml(c.requirement_ref)}</div></div>` : ''}${field('Tags', c.tags)}${field('Estimated time', c.estimated_minutes ? `${c.estimated_minutes} min` : '')}
       </div>
     </div>
     <h3>Test steps</h3>

@@ -13,6 +13,7 @@ import {
 } from './services.js';
 import { importCases, exportCases, toCsv, toXlsx, TEMPLATE_ROWS, suiteBelongs } from './importExport.js';
 import { renderReport } from './reports/index.js';
+import { ai } from './aiRoutes.js';
 
 const MAX_UPLOAD_MB = toInt(process.env.MAX_UPLOAD_MB) || 25;
 
@@ -560,3 +561,7 @@ api.delete('/signoffs/:id', anyRole, ah((req, res) => {
 api.get('/plans/:id/report', ah(async (req, res) => {
   await renderReport(req, res, toInt(req.params.id));
 }));
+
+/* ------------------------------------------------------------------ AI test case generator, settings, Jira */
+
+api.use(ai);
