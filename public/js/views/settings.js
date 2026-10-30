@@ -3,7 +3,7 @@ import { esc, $, toast, options, formValues } from '../ui.js';
 import { refresh } from '../app.js';
 
 const CLAUDE_MODELS = ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'];
-const OPEN_MODELS = ['llama3.1', 'llama3.3', 'qwen2.5', 'qwen3', 'mistral-small', 'gemma3', 'deepseek-r1'];
+const OPEN_MODELS = ['meta-llama/llama-3.3-70b-instruct', 'qwen/qwen-2.5-72b-instruct', 'llama3.1', 'llama3.3', 'qwen2.5', 'qwen3', 'mistral-small', 'gemma3', 'deepseek-r1'];
 
 export async function renderSettings(main) {
   if (!can.admin()) { main.innerHTML = '<div class="page">Admins only.</div>'; return; }
@@ -24,7 +24,7 @@ export async function renderSettings(main) {
           </fieldset>
           <label>Model<input name="ai_model" value="${esc(s.ai_model)}" list="modelList" required>
             <datalist id="modelList"></datalist></label>
-          <label id="baseUrlWrap">Server URL <span class="hint">e.g. http://localhost:11434/v1 for Ollama, http://localhost:1234/v1 for LM Studio</span>
+          <label id="baseUrlWrap">Server URL <span class="hint">Ollama: http://localhost:11434/v1 · LM Studio: http://localhost:1234/v1 · OpenRouter: https://openrouter.ai/api/v1 (use the provider's own model ID, e.g. meta-llama/llama-3.3-70b-instruct)</span>
             <input name="ai_base_url" value="${esc(s.ai_base_url)}" placeholder="http://localhost:11434/v1"></label>
           <label>API key <span class="hint" id="keyHint"></span>
             <input name="ai_api_key" type="password" autocomplete="off" placeholder="${s.ai_api_key_set ? '•••••••• saved — leave blank to keep' : ''}"></label>

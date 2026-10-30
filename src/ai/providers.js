@@ -99,18 +99,22 @@ async function completeOpenAICompatible({ settings, system, prompt, schema }) {
       { role: 'user', content: prompt }, // extracted document text is already inside the prompt
     ],
   };
-  let res;
-  try {
-    res = await fetch(`${base}/chat/completions`, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(30 * 60 * 1000) });
-  } catch (e) {
-    throw new HttpError(502, `Could not reach the AI server at ${base} (${e.cause?.code || e.message}). Check Settings → AI.`);
+  const send = async (payload) => {
+    try {
+      return await fetch(`${base}/chat/completions`, { method: 'POST', headers, body: JSON.stringify(payload), signal: AbortSignal.timeout(30 * 60 * 1000) });
+    } catch (e) {
+      throw new HttpError(502, `Could not reach the AI server at ${base} (${e.cause?.code || e.message}). Check Settings → AI.`);
+    }
+  };
+  let res = await send(body);
+  let errText = res.ok ? '' : await res.text().catch(() => '');
+  // Some models and providers reject response_format; the schema in the prompt is enough, so retry once without it.
+  if (res.status === 400 && /response_format|json_object|json mode|structured/i.test(errText)) {
+    const { response_format: _dropped, ...plain } = body;
+    res = await send(plain);
+    errText = res.ok ? '' : await res.text().catch(() => '');
   }
-  if (!res.ok) {
-    const detail = (await res.text().catch(() => '')).slice(0, 300);
-    if (res.status === 401 || res.status === 403) throw new HttpError(400, 'The AI server rejected the API key. Check Settings → AI.');
-    if (res.status === 404) throw new HttpError(400, `Model "${settings.ai_model}" or endpoint not found on ${base}. ${detail}`);
-    throw new HttpError(502, `AI server error ${res.status}: ${detail}`);
-  }
+  if (!res.ok) throw upstreamError(res.status, errText, settings, base);
 
   let text = '';
   let usage = {};
@@ -128,10 +132,13 @@ async function completeOpenAICompatible({ settings, system, prompt, schema }) {
       if (data === '[DONE]') continue;
       try {
         const evt = JSON.parse(data);
+        // OpenRouter and others report failures as an event inside an HTTP 200 stream
+        if (evt.error) throw new HttpError(502, `The AI server returned an error: ${evt.error.message || JSON.stringify(evt.error)}`);
         text += evt.choices?.[0]?.delta?.content || '';
         finish = evt.choices?.[0]?.finish_reason || finish;
         if (evt.usage) usage = evt.usage;
-      } catch {
+      } catch (e) {
+        if (e instanceof HttpError) throw e;
         /* ignore keep-alive or partial lines */
       }
     }
@@ -144,6 +151,21 @@ async function completeOpenAICompatible({ settings, system, prompt, schema }) {
     model: settings.ai_model,
     usage: { input_tokens: usage.prompt_tokens ?? null, output_tokens: usage.completion_tokens ?? null },
   };
+}
+
+/** Turns a failed HTTP response from an OpenAI-compatible server into a message a tester can act on. */
+function upstreamError(status, bodyText, settings, base) {
+  let detail = String(bodyText || '').slice(0, 400);
+  try {
+    const j = JSON.parse(bodyText);
+    detail = j.error?.message || j.message || (typeof j.error === 'string' ? j.error : detail);
+  } catch { /* not JSON */ }
+  if (status === 401 || status === 403) return new HttpError(400, `The AI server rejected the API key (HTTP ${status}). ${detail}`.trim());
+  if (status === 402) return new HttpError(400, `The AI account has no credits left (HTTP 402). ${detail}`.trim());
+  if (status === 404) return new HttpError(400, `Model "${settings.ai_model}" or endpoint not found on ${base}. ${detail}`.trim());
+  if (status === 429) return new HttpError(429, `The AI server rate limit was reached. ${detail}`.trim());
+  if (status === 400) return new HttpError(400, `The AI server rejected the request: ${detail} (model: ${settings.ai_model}). Check the model name in Settings → AI.`);
+  return new HttpError(502, `AI server error ${status}: ${detail}`);
 }
 
 /** Pulls the JSON object out of a model reply, tolerating code fences or stray prose. */

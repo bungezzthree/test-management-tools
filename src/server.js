@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import { api } from './routes.js';
+import { HttpError } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -34,7 +35,8 @@ app.use((err, req, res, next) => {
   }
   if (status >= 500) console.error(err);
   if (res.headersSent) return res.end();
-  res.status(status).json({ error: status >= 500 ? 'Internal server error' : message });
+  // our own HttpError messages are written for users (including 502 from an upstream AI/Jira); only hide unexpected crashes
+  res.status(status).json({ error: status >= 500 && !(err instanceof HttpError) ? 'Internal server error' : message });
 });
 
 app.listen(PORT, HOST, () => console.log(`Test Management Tools running at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`));
